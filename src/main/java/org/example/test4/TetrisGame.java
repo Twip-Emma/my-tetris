@@ -8,7 +8,7 @@ import java.awt.event.ActionListener;
 public class TetrisGame {
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("Tetris");
+        JFrame frame = new JFrame("爷的俄罗斯方块");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(320, 660);
 

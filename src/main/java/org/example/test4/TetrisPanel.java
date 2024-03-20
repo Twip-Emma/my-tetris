@@ -19,7 +19,6 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
     private Timer timer;
     private boolean isFallingFinished = false;
     private boolean isMoving = false; // 是否正在移动
-    private boolean isPaused = false;
     private int currentX = 0;
     private int currentY = 0;
     private Block currentBlock;
@@ -59,8 +58,16 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
     private void update() {
         if (isFallingFinished) {
             // 1.当前方块已到达边界，需要固定并判断是否需要消除行
+            // 如果固定后当前方块高于游戏区域，那直接结束游戏
+            if (currentY == 0) {
+                isFallingFinished = false;
+                timer.stop();
+                showGameOverScreen();
+                return;
+            }
             // 固定方块
             fixBlock();
+
             // 检查并清除已完成的行
             checkCompletedRows();
             // 生成新方块
@@ -70,6 +77,10 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
             isFallingFinished = false;
         } else {
             // 2.当前方块未到达边界，继续下落
+            // 可能会出现进入该分支时并发按下按键导致方块落地，所以需要多一层判断
+//            if (!isFallingFinished) {
+//                currentY++;
+//            }
             currentY++;
             if (!isValidMove(currentBlock, currentX, currentY + 1)) {
                 // Block reached the bottom or collided with other blocks
@@ -119,14 +130,14 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
             }
         }
 
-        // Remove completed rows
+        // 移除目标方块行
         if (!completedRows.isEmpty()) {
             for (int row : completedRows) {
                 for (int k = 0; k < BOARD_WIDTH; k++) {
                     filledCells.remove(new Point(k, row));
                 }
             }
-            // Move cells above down
+            // 将移除行上方的方块往下移动，移除了几行就往下移动几格
             int numRowsRemoved = completedRows.size();
             for (int row : completedRows) {
                 for (int k = row - 1; k >= 0; k--) {
@@ -142,7 +153,10 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
         }
     }
 
-
+    /**
+     * 检查是否发生碰撞
+     * @return boolean 可以继续往下移动：true，不可以继续往下移动：false
+     */
     private boolean isValidMove(Block block, int x, int y) {
         // 检查块是否与任何现有单元格重叠
         for (Point point : block.getBlockCoordinates()) {
@@ -155,6 +169,50 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
         return true;
     }
 
+    /**
+     * 游戏结束时，处理显示的对话框
+     * @return boolean 可以继续游戏：true，不可以继续游戏：false
+     */
+    private void showGameOverScreen() {
+        // 创建一个模态对话框
+        JOptionPane optionPane = new JOptionPane("游戏结束", JOptionPane.ERROR_MESSAGE);
+        JDialog dialog = optionPane.createDialog(this, "游戏状态");
+
+        // 添加重新开始按钮
+        JButton restartButton = new JButton("重新开始");
+        restartButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                restartGame();
+                dialog.dispose(); // 关闭对话框
+            }
+        });
+
+        // 将重新开始按钮添加到选项窗格
+        optionPane.setOptions(new Object[]{restartButton});
+        optionPane.setOptionType(JOptionPane.DEFAULT_OPTION);
+
+        // 显示对话框
+        dialog.setVisible(true);
+    }
+
+    /**
+     * 重新开始游戏
+     */
+    private void restartGame() {
+        // 重绘游戏界面
+        repaint();
+
+        // 重置关键变量
+        filledCells.clear();
+        currentX = 0;
+        currentY = 0;
+
+        // 游戏开始
+        startGame();
+    }
+
+
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -162,7 +220,7 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void draw(Graphics g) {
-        // Draw background grid
+        // 绘制背景
         g.setColor(Color.WHITE);
         for (int i = 0; i < BOARD_HEIGHT; i++) {
             for (int j = 0; j < BOARD_WIDTH; j++) {
@@ -170,7 +228,7 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
             }
         }
 
-        // Draw filled cells
+        // 绘制已经残留的方块
         for (Point point : filledCells) {
             g.setColor(Color.GREEN); // 已经残留的方块变成绿色
             g.fillRect(point.x * 30, point.y * 30, 30, 30);
@@ -178,7 +236,7 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
             g.drawRect(point.x * 30, point.y * 30, 30, 30);
         }
 
-        // Draw current block
+        // 绘制正在下落的方块
         if (currentBlock != null) {
             g.setColor(Color.BLACK); // 正在下落的方块组合是黑色
             for (Point point : currentBlock.getBlockCoordinates()) {
@@ -197,33 +255,44 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
     @Override
     public void keyPressed(KeyEvent e) {
         int keyCode = e.getKeyCode();
-        synchronized (lock) {
-            switch (keyCode) {
-                case KeyEvent.VK_LEFT -> {
-                    if (!isMoving && isValidMove(currentBlock, currentX - 1, currentY)) {
-                        currentX--;
+        switch (keyCode) {
+            case KeyEvent.VK_LEFT -> {
+                if (!isMoving && isValidMove(currentBlock, currentX - 1, currentY)) {
+                    currentX--;
+                    if (isValidMove(currentBlock, currentX, currentY + 1)) {
+                        // 校验方块是否落地完成
+                        isFallingFinished = false;
                     }
-                }
-                case KeyEvent.VK_RIGHT -> {
-                    if (!isMoving && isValidMove(currentBlock, currentX + 1, currentY)) {
-                        currentX++;
-                    }
-                }
-                case KeyEvent.VK_DOWN -> {
-                    if (!isMoving && isValidMove(currentBlock, currentX, currentY + 1)) {
-                        currentY++;
-                    }
-                }
-                case KeyEvent.VK_UP -> {
-                    if (!isMoving) {
-                        rotateCurrentBlock();
-                    }
-                }
-                default -> {
                 }
             }
-            repaint();
+            case KeyEvent.VK_RIGHT -> {
+                if (!isMoving && isValidMove(currentBlock, currentX + 1, currentY)) {
+                    currentX++;
+                }
+                if (isValidMove(currentBlock, currentX, currentY + 1)) {
+                    // 校验方块是否落地完成
+                    isFallingFinished = false;
+                }
+            }
+            case KeyEvent.VK_DOWN -> {
+                if (!isMoving && isValidMove(currentBlock, currentX, currentY + 1)) {
+                    currentY++;
+                }
+            }
+            case KeyEvent.VK_UP -> {
+                if (!isMoving) {
+                    rotateCurrentBlock();
+                }
+            }
+            default -> {
+            }
         }
+        // 按下按键后立刻进行校验
+        if (!isValidMove(currentBlock, currentX, currentY + 1)) {
+            // 校验方块是否落地完成
+            isFallingFinished = true;
+        }
+        repaint();
     }
 
     private void rotateCurrentBlock() {
