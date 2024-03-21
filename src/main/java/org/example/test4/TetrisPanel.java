@@ -24,6 +24,7 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
     private Block currentBlock;
     private Map<Point,Color> filledCells; // 用于存储已经在地图上固定的方块
     private final Object lock = new Object(); // 锁对象
+    private int playerScore = 0; // 玩家分数
 
     /**
      * 构造方法：初始化背景
@@ -142,19 +143,28 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
         }
 
         // 移除目标方块行，并将上面的方块往下移动
+        int numRowsRemoved = completedRows.size();
         if (!completedRows.isEmpty()) {
             for (int row : completedRows) {
                 filledCells.keySet().removeIf(p -> p.y == row); // 移除已完成的行
-                for (Map.Entry<Point, Color> entry : new ArrayList<>(filledCells.entrySet())) {
-                    Point p = entry.getKey();
+            }
+            // 将上方的方块往下移动
+            for (Map.Entry<Point, Color> entry : new ArrayList<>(filledCells.entrySet())) {
+                Point p = entry.getKey();
+                for (int row : completedRows) {
                     if (p.y < row) { // 如果方块在已完成行上方，则下移
                         Color color = entry.getValue();
                         filledCells.remove(p);
-                        filledCells.put(new Point(p.x, p.y + 1), color); // 更新方块的位置
+                        filledCells.put(new Point(p.x, p.y + numRowsRemoved), color); // 更新方块的位置
                     }
                 }
             }
         }
+
+
+        // 计算得分
+        int score = calculateScore(numRowsRemoved);
+        playerScore += score;
     }
 
 
@@ -254,6 +264,25 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
                 g.setColor(Color.BLACK);
                 g.drawRect((currentX + point.x) * 30, (currentY + point.y) * 30, 30, 30);
             }
+        }
+
+        // 绘制得分
+        g.setColor(Color.BLACK);
+        g.drawString("当前得分: " + playerScore, 10, BOARD_HEIGHT * 30 + 20);
+    }
+
+    // 根据消除的行数计算得分
+    private int calculateScore(int numRowsRemoved) {
+        if (numRowsRemoved == 1) {
+            return 1;
+        } else if (numRowsRemoved == 2) {
+            return 3;
+        } else if (numRowsRemoved == 3) {
+            return 5;
+        } else if (numRowsRemoved >= 4) {
+            return 8;
+        } else {
+            return 0;
         }
     }
 
