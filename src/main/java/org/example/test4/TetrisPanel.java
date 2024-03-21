@@ -22,7 +22,7 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
     private int currentX = 0;
     private int currentY = 0;
     private Block currentBlock;
-    private Set<Point> filledCells; // 用于存储已经在地图上固定的方块
+    private Map<Point,Color> filledCells; // 用于存储已经在地图上固定的方块
     private final Object lock = new Object(); // 锁对象
 
     /**
@@ -36,7 +36,7 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
         timer = new Timer(DELAY, this);
         addKeyListener(this);
 
-        filledCells = new HashSet<>();
+        filledCells = new HashMap<>();
     }
 
     public void startGame() {
@@ -70,6 +70,7 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
 
             // 检查并清除已完成的行
             checkCompletedRows();
+
             // 生成新方块
             generateNewBlock();
             currentX = 0;
@@ -81,23 +82,29 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
 //            if (!isFallingFinished) {
 //                currentY++;
 //            }
-            currentY++;
+
             if (!isValidMove(currentBlock, currentX, currentY + 1)) {
                 // Block reached the bottom or collided with other blocks
                 isFallingFinished = true;
+            } else {
+                currentY++;
             }
+
         }
     }
 
     private void generateNewBlock() {
         // 随机生成一个方块
         Random random = new Random();
-        int blockType = random.nextInt(4); // 生成 0 到 6 的随机数 (共 7 种方块)
+        int blockType = random.nextInt(7); // 生成 0 到 6 的随机数 (共 7 种方块)
         switch (blockType) {
             case 0 -> currentBlock = new IBlock();
             case 1 -> currentBlock = new OBlock();
             case 2 -> currentBlock = new TBlock();
             case 3 -> currentBlock = new LBlock();
+            case 4 -> currentBlock = new SBlock1();
+            case 5 -> currentBlock = new SBlock2();
+            case 6 -> currentBlock = new JBlock();
 
             // 添加其他类型的方块...
             default -> currentBlock = new IBlock(); // 默认情况下，生成 I 型方块
@@ -106,9 +113,13 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
 
 
     private void fixBlock() {
+        Color blockColor = currentBlock.getColor(); // 获取当前方块的颜色
         // 固定方块的代码
         for (Point point : currentBlock.getBlockCoordinates()) {
-            filledCells.add(new Point(currentX + point.x, currentY + point.y));
+//            filledCells.add(new Point(currentX + point.x, currentY + point.y));
+            // 将地图上的方块颜色设为当前方块的颜色
+            // 这里假设 filledCells 是一个 Map<Point, Color>，表示每个点对应的颜色
+            filledCells.put(new Point(currentX + point.x, currentY + point.y), blockColor);
         }
     }
 
@@ -120,7 +131,7 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
         for (int i = BOARD_HEIGHT - 1; i >= 0; i--) {
             boolean rowCompleted = true;
             for (int j = 0; j < BOARD_WIDTH; j++) {
-                if (!filledCells.contains(new Point(j, i))) {
+                if (!filledCells.containsKey(new Point(j, i))) {
                     rowCompleted = false;
                     break;
                 }
@@ -130,28 +141,22 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
             }
         }
 
-        // 移除目标方块行
+        // 移除目标方块行，并将上面的方块往下移动
         if (!completedRows.isEmpty()) {
             for (int row : completedRows) {
-                for (int k = 0; k < BOARD_WIDTH; k++) {
-                    filledCells.remove(new Point(k, row));
-                }
-            }
-            // 将移除行上方的方块往下移动，移除了几行就往下移动几格
-            int numRowsRemoved = completedRows.size();
-            for (int row : completedRows) {
-                for (int k = row - 1; k >= 0; k--) {
-                    for (int j = 0; j < BOARD_WIDTH; j++) {
-                        Point p = new Point(j, k);
-                        if (filledCells.contains(p)) {
-                            filledCells.remove(p);
-                            filledCells.add(new Point(j, k + numRowsRemoved));
-                        }
+                filledCells.keySet().removeIf(p -> p.y == row); // 移除已完成的行
+                for (Map.Entry<Point, Color> entry : new ArrayList<>(filledCells.entrySet())) {
+                    Point p = entry.getKey();
+                    if (p.y < row) { // 如果方块在已完成行上方，则下移
+                        Color color = entry.getValue();
+                        filledCells.remove(p);
+                        filledCells.put(new Point(p.x, p.y + 1), color); // 更新方块的位置
                     }
                 }
             }
         }
     }
+
 
     /**
      * 检查是否发生碰撞
@@ -162,12 +167,13 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
         for (Point point : block.getBlockCoordinates()) {
             int newX = x + point.x;
             int newY = y + point.y;
-            if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT || filledCells.contains(new Point(newX, newY))) {
+            if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT || filledCells.containsKey(new Point(newX, newY))) {
                 return false;
             }
         }
         return true;
     }
+
 
     /**
      * 游戏结束时，处理显示的对话框
@@ -229,8 +235,11 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
         }
 
         // 绘制已经残留的方块
-        for (Point point : filledCells) {
-            g.setColor(Color.GREEN); // 已经残留的方块变成绿色
+        // 绘制已经残留的方块
+        for (Map.Entry<Point, Color> entry : filledCells.entrySet()) {
+            Point point = entry.getKey();
+            Color color = entry.getValue();
+            g.setColor(color); // 设置方块颜色
             g.fillRect(point.x * 30, point.y * 30, 30, 30);
             g.setColor(Color.BLACK);
             g.drawRect(point.x * 30, point.y * 30, 30, 30);
@@ -238,8 +247,9 @@ class TetrisPanel extends JPanel implements ActionListener, KeyListener {
 
         // 绘制正在下落的方块
         if (currentBlock != null) {
-            g.setColor(Color.BLACK); // 正在下落的方块组合是黑色
+            g.setColor(currentBlock.getColor()); // 正在下落的方块组合是黑色
             for (Point point : currentBlock.getBlockCoordinates()) {
+                g.setColor(currentBlock.getColor());
                 g.fillRect((currentX + point.x) * 30, (currentY + point.y) * 30, 30, 30);
                 g.setColor(Color.BLACK);
                 g.drawRect((currentX + point.x) * 30, (currentY + point.y) * 30, 30, 30);

@@ -25,4 +25,9 @@ class OBlock extends Block {
     public void rotateClockwise() {
         // O block does not rotate, so no action needed
     }
+
+    @Override
+    public Color getColor() {
+        return Color.RED;
+    }
 }

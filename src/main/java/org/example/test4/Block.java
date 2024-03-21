@@ -12,6 +12,8 @@ abstract class Block {
 
     public abstract void rotateClockwise();
 
+    public abstract Color getColor();
+
     public Block cloneBlock() {
         try {
             Block clonedBlock = (Block) super.clone();

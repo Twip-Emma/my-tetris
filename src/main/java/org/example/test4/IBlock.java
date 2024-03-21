@@ -25,4 +25,9 @@ class IBlock extends Block {
     public void rotateClockwise() {
         rotationIndex = (rotationIndex + 1) % rotationStates.size(); // 循环遍历旋转状态
     }
+
+    @Override
+    public Color getColor() {
+        return Color.PINK;
+    }
 }
