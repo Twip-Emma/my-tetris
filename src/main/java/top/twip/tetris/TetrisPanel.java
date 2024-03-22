@@ -1,4 +1,4 @@
-package org.example.test4;
+package top.twip.tetris;
 
 import javax.swing.*;
 import javax.swing.Timer;
