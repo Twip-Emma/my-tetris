@@ -8,7 +8,7 @@ public class Ball {
     private float x, y; // 球的坐标
     private float radius; // 球的半径
     private float speedX, speedY; // 球的速度
-    private float acceleration = 0.2f; // 加速度
+    private float acceleration = 0.05f; // 加速度，向下为正方向
 
     public Ball(float x, float y, float radius) {
         this.x = x;
@@ -16,8 +16,8 @@ public class Ball {
         this.radius = radius;
         Random random = new Random();
         double angle = random.nextDouble() * 2 * Math.PI; // 生成随机角度
-        speedX = (float) Math.cos(angle) * 5; // 根据角度计算速度
-        speedY = (float) Math.sin(angle) * 5;
+        speedX = (float) Math.cos(angle) * 8; // 根据角度计算速度
+        speedY = (float) Math.sin(angle) * 8;
     }
 
     public void render(ShapeRenderer renderer) {
@@ -27,9 +27,11 @@ public class Ball {
 
     // 更新球的位置
     public void update() {
-        // 移动球
+        // 水平移动
         x += speedX;
+        // 垂直移动，并施加加速度
         y += speedY;
+        speedY -= acceleration;
 
         // 碰撞检测
         if (x - radius < 0 || x + radius > 600) {
@@ -75,4 +77,15 @@ public class Ball {
     public float getRadius() {
         return radius;
     }
+
+    // 获取球的速度X分量
+    public float getSpeedX() {
+        return speedX;
+    }
+
+    // 获取球的速度Y分量
+    public float getSpeedY() {
+        return speedY;
+    }
 }
+
